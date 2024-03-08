@@ -19,24 +19,44 @@ echo "#       * xmllint for extracting xml content       #"
 echo "#       * pandoc for converting text files         #"
 echo "####################################################"
 
+WIKI_DOWNLOADS=${WIKI_DOWNLOADS:-"$PWD"}
+
 if [ -z "${WIKI_DOWNLOADS}" ]
 then   
    echo "WIKI_DOWNLOADS environment var must be set to a folder containing files like those:"
-   echo "[lang]wiki-latest-pages-articles-multistream-index.txt (decompressed)"
-   echo "[lang]wiki-latest-pages-articles-multistream.xml.bz2 (compressed)"
+   echo "[lang]wiki-YYYYMMDD-pages-articles-multistream-index.txt.bz2 (decompressed)"
+   echo "[lang]wiki-YYYYMMDD-pages-articles-multistream.xml.bz2 (compressed)"
    echo "You can get such files from https://dumps.wikimedia.org"
    exit;
 else
    echo "WIKI_DOWNLOADS environment is set to: ${BOLD}${WIKI_DOWNLOADS}${PLAIN}"
 fi
+
 read -p "Which Wiki? [en]? " LANG
 LANG=${LANG:-en}
+
+NDX_GLOB="${WIKI_DOWNLOADS}/${LANG}"wiki-????????-pages-articles-multistream-index.txt.bz2
+PGS_GLOB="${WIKI_DOWNLOADS}/${LANG}"wiki-????????-pages-articles-multistream.xml.bz2
+
+NDX=$(ls -1 ${NDX_GLOB} | head -1)
+PGS=$(ls -1 ${PGS_GLOB} | head -1)
+
+if [ -z "$NDX" -o -z "$PGS" ]
+then
+  [[ -z "$NDX" ]] && echo Index file $NDX_GLOB not found
+  [[ -z "$PGS" ]] && echo Pages file $PGS_GLOB not found
+  exit 1
+else
+  echo Index file: $NDX
+  echo Pages file: $PGS
+fi
+
 read -p "Page title (regular expression, :title$ for exact match)? " PATTERN
 echo "Search results: (${INVERTED}Byte Offset${PLAIN} : ${INVERTED}Page ID${PLAIN} : ${INVERTED}Page Title${PLAIN})"
-grep "${PATTERN}" -i ${WIKI_DOWNLOADS}/${LANG}wiki-latest-pages-articles-multistream-index.txt
+bzgrep "${PATTERN}" -i "$NDX"
 read -p "Byte Offset? " OFFSET
 read -p "Page ID? " ARTICLEID
-dd skip=${OFFSET} count=1000000 if=${WIKI_DOWNLOADS}/${LANG}wiki-latest-pages-articles-multistream.xml.bz2 of=temp.bz2 bs=1 \
+dd skip=${OFFSET} count=1000000 if=${PGS} of=temp.bz2 bs=1 \
 && bzip2recover temp.bz2 \
 && rm temp.bz2 \
 && bunzip2 rec*temp.bz2 \
